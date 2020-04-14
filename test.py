@@ -19,7 +19,7 @@ def main():
         lattice.run(1000000, 1)
 
     if simulate == "N":
-        file_handle = open("free_energy2.dat", "w+")
+        file_handle = open("free_energy.dat", "w+")
         lattice = Cahn_Halliard(size, 1.0, 1.0, 0.1, 0.1, 0.1, phi_0)
         sweeps = 1000000
 
@@ -27,7 +27,7 @@ def main():
         fed = []
 
         for i in range(sweeps):
-            if i % 50 == 0:
+            if i % 100 == 0:
                 fed.append(np.sum(lattice.free_energy()))
                 print(i)
                 time.append(i)

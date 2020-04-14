@@ -21,7 +21,7 @@ def main():
     if simulate == "N":
         file_handle = open("free_energy.dat", "w+")
         lattice = Cahn_Halliard(size, 1.0, 1.0, 0.1, 0.1, 0.1, phi_0)
-        sweeps = 100000
+        sweeps = 1000000
 
         time = []
         fed = []

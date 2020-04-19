@@ -1,102 +1,209 @@
+"""
+Modelling and Visualisation in Physics
+Checkpoint 3: PDEs
+The main module which uses classes to run different algorithms based on user input.
+This includes an animation of an oil and water mixture based on starting parameters
+using the Cahn-Hilliard algorthim as well as being able to produce a graph for the 
+free energy density based on this mixture and initial parameters. Also using Poisson
+statistics to test the potential, electric and magnetic fields for lattices with 
+either a monopole or wire in the centre. Also produces a plot for the convergences of
+the potential field of a monopole in a 2d lattice with changing amounts of over-relaxation.
+Author: L. Dorman-Gajic
+"""
 import numpy as np
 import random
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from partial_diff import Cahn_Halliard
+from Poisson import Poisson
+from Poisson_Mag import Poisson_Mag
+from Poisson2D import Poisson2D
 import sys
 import math 
 
-class Cahn_Halliard(object):
-    def __init__(self, size, dx, dt, a, M, kappa, phi_0):
-        self.size = size
-        self.dx = dx
-        self.dt = dt
-        self.a = a
-        self.M = M
-        self.kappa = kappa
-        self.phi_0 = phi_0
 
-        self.build(phi_0)
+def main():
+    #input by user of the size of square lattice and the type algorithm they wish to produce
+    size_input = int(sys.argv[1])
+    simulate = sys.argv[2]
+
+    if simulate == "Y":  
+        #This simulates the Cahn-Hilliard algorithm
+        #user input of initial condition of mixture 
+        phi_0 = float(sys.argv[3])
+        size = (size_input, size_input)
+        #calling class to initialise lattice
+        lattice = Cahn_Halliard(size, 1.0, 1.0, 0.1, 0.1, 0.1, phi_0)
+        #runs simulation in class
+        lattice.run(1000000, 1)
+
+    elif simulate == "CH":
+        #to produce free energy density graph
+        #user input of initial condition of mixture 
+        phi_0 = float(sys.argv[3])
+        size = (size_input, size_input)
+        #open file
+        file_handle = open("free_energy.dat", "w+")
+        #initialise lattice using class
+        lattice = Cahn_Halliard(size, 1.0, 1.0, 0.1, 0.1, 0.1, phi_0)
+        sweeps = 1000000
+
+        #staring lists to plot 
+        time = []
+        fed = []
+
+        for i in range(sweeps):
+            #only taking every 100th sweep
+            if i % 100 == 0:
+                #calculating free energy density
+                fed.append(np.sum(lattice.free_energy()))
+                print(i)
+                time.append(i)
+            #updating the lattices each step
+            lattice.update_phi()
+            lattice.update_mu()
+
+        #writing to file
+        for j in range(len(time)):
+            file_handle.write(str(time[j]) + " " + str(fed[j]) + "\n")
+        file_handle.close()
+
+    elif simulate == "Poisson":
+        #producing lattices for potential and electric field, 3D
+        thres = 0.01
+        size = (size_input, size_input, size_input)
+        #initialising lattice in class
+        lattice = Poisson(size, thres)
+        sweeps = 1000000
+
+        #creating monopole
+        lattice.monopole()
+
+        #condition for ending the run
+        end = False
 
 
-    def build(self, phi_0):
-        self.phi = (np.random.choice(a=[1.0,-1.0], size = self.size)*np.random.random(self.size)) + phi_0
-        #self.phi = np.zeros(self.size)
-        #for i in range(self.size[0]):
-         #   for j in range(self.size[1]):
-          #      self.phi[i, j] = np.random.uniform(-0.1, 0.11) + self.phi_0
-        self.mu = np.zeros(self.size)
+        for i in range(sweeps):
+            #storing initial phi value for determining convergence
+            before = np.array(lattice.phi)
+            #updating phi
+            lattice.phi = lattice.jacobi(lattice.phi)
+            if lattice.terminate_condition(before, lattice.phi) == False:
+                print(i)
+                pass
+            elif lattice.terminate_condition(before, lattice.phi) == True:
+                #end when convergence occurs
+                print("Jacobi converged in {} steps".format(i))
+                break
 
-    def pbc(self, indices):
-        return(indices[0]%self.size[0], indices[1]%self.size[1])  
+        #storing field in data and text files for plotting
+        phi_xy_plane = lattice.phi[:,:,25]
+        np.savetxt("Potential_Field.txt", phi_xy_plane)
+        with open("Potential_Field.dat", "w+") as dataFile:
 
-    #def mu(self, indices):
-      #  mu = (-self.a * self.phi[indices] + self.a * self.phi[indices]**3 - self.kappa * self.laplacian(self.phi, indices))
-       # return mu
-
-    def laplacian(self, lattice):
-        lap = np.zeros(self.size)
-        for i in range(self.size[0]):
-            for j in range(self.size[1]):
-                #indices = (i,j)
-                laplacian_x = (lattice[self.pbc((i+1,j))] + lattice[self.pbc((i-1,j))] - 2 * lattice[i,j]) / self.dx**2
-                laplacian_y = (lattice[self.pbc((i,j+1))] + lattice[self.pbc((i,j-1))] - 2 * lattice[i,j]) / self.dx**2
-                lap[i,j] = laplacian_x + laplacian_y
-                #lap[i,j] = (lattice[self.pbc((i+1,j))] + lattice[self.pbc((i-1,j))] + lattice[self.pbc((i,j+1))] + lattice[self.pbc((i,j-1))] - (4 * lattice[self.pbc((i,j))]))/self.dx**2
-        return lap
-    
-    def differential(self, lattice):
-        diff = np.zeros(self.size)
-        for i in range(self.size[0]):
-            for j in range(self.size[1]):
-                diff[i,j] = (lattice[self.pbc((i+1,j))] - lattice[self.pbc((i-1,j))] + lattice[self.pbc((i,j+1))] - lattice[self.pbc((i,j-1))])/self.dx*2.0
-        print("diff")
-        print(diff)
-        return diff
-
-    def update_phi(self):
-        #phi = np.zeros(self.size)
-        #for n in range(self.size[0]):
-            #for m in range(self.size[1]):
-                #indices = (n,m)
-        lap = self.laplacian(self.mu)
-        self.phi = self.phi + (self.M * self.dt) * lap
+            for i in range(size[0]):
+                for j in range(size[1]):
+                    dataFile.write('%lf, %lf, %lf\n' %(float(i), float(j), phi_xy_plane[(i,j)]))
                 
 
-    def update_mu(self):
-        #for n in range(self.size[0]):
-         #   for m in range(self.size[1]):
-        lap = self.laplacian(self.phi)
-        self.mu = (-self.a * self.phi + self.a * self.phi**3 - self.kappa * lap)
+        #storing E-field in data files for plotting
+        E_x, E_y, E_z = lattice.e_field()
+        E_x_plane = E_x[:,:,25]
+        E_y_plane = E_y[:,:,25]
 
-    def free_energy(self):
 
-        #diff = self.differential(self.phi)
-        diff = np.gradient(self.phi)
-        print(self.phi)
-        print("fe")
-        free_energy = -(self.a/2.0) * self.phi**2 + (self.a/4.0) * self.phi**4 + (self.kappa/2.0) * (diff[0]**2 + diff[1]**2)
-        print(free_energy)
-        return free_energy
-       
-    def run(self, iterations, it_per_frame):
-        """
-        method running the data into FuncAnimation
-        """
-        self.it_per_frame = it_per_frame
-        self.figure = plt.figure()
-        self.image = plt.imshow(self.phi, cmap='seismic', animated=True, interpolation='gaussian')
-        self.animation = animation.FuncAnimation(self.figure, self.animate, repeat=False, frames=iterations, interval=20 , blit=True)
-        plt.clim(-1.1, 1.1)
-        plt.colorbar()
-        plt.show()
+        with open("Electric_Field.dat", "w+") as dataFile:
+            for i in range(size[0]):
+                for j in range(size[1]):
+                    dataFile.write('%lf, %lf, %lf, %lf\n' %(float(i), float(j), E_x_plane[(i,j)], E_y_plane[(i,j)]))
 
-    def animate(self, *args):
-        """
 
-        a loop to but data into animation
-        """
-        for t in range(100):
-            self.update_phi()
-            self.update_mu()
-        self.image.set_array(self.phi)
-        return self.image,
+
+    elif simulate == "Poisson_Mag":
+        #producing lattices for potential and magnetic field, 3D
+        thres = 0.01
+        size = (size_input, size_input, size_input)
+        #initialising lattice in class
+        lattice = Poisson_Mag(size, 0.0, thres)
+        sweeps = 1000000
+
+        #creating wire
+        lattice.wire()
+
+        end = False
+
+
+        for i in range(sweeps):
+            #storing initial value for convergence condition
+            before = np.array(lattice.A)
+            #updating lattice
+            lattice.A = lattice.jacobi(lattice.A)
+            if lattice.terminate_condition(before, lattice.A) == False:
+                print(i)
+                pass
+            elif lattice.terminate_condition(before, lattice.A) == True:
+                #end when convergence occurs
+                print("Jacobi converged in {} steps".format(i))
+                break
+
+        #plotting potential field
+        A_xy_plane = lattice.A[:,:,25]
+        np.savetxt("Potential_Field_Mag.txt", A_xy_plane)
+        with open("Potential_Field_Mag.dat", "w+") as dataFile:
+
+            for i in range(size[0]):
+                for j in range(size[1]):
+                    dataFile.write('%lf, %lf, %lf\n' %(float(i), float(j), A_xy_plane[(i,j)]))
+                
+
+        #plotting magnetic field
+        B_x, B_y, B_z = lattice.m_field()
+        B_x_plane = B_x[:,:,25]
+        B_y_plane = B_y[:,:,25]
+
+
+        with open("Magnetic_Field.dat", "w+") as dataFile:
+            for i in range(size[0]):
+                for j in range(size[1]):
+                    dataFile.write('%lf, %lf, %lf, %lf\n' %(float(i), float(j), B_x_plane[(i,j)], B_y_plane[(i,j)]))
+ 
+
+    elif simulate == "SOR":
+        #over relaxation for 2d poisson lattice
+        phi_0 = float(sys.argv[3])
+        thres = 0.01
+        size = (size_input, size_input)
+        sweeps = 1000000
+        file_handle = open("omega_sweeps.dat", "w+")
+
+        #array of omega (over relaxation) values
+        omega_values = np.arange(1.0, 2.0, 0.01)
+        #initialising list for number of sweeps till convergence occurs
+        converge_sweep = []
+        for i in range(len(omega_values)):
+            omega = omega_values[i]
+            #initialise lattice from class using varrying omega values
+            lattice = Poisson2D(size, 1.0, 1.0, 0.0, omega, thres)
+            lattice.monopole()
+
+            end = False
+
+            for j in range(sweeps):
+                #storing initial lattice so to determine convergence 
+                before = np.array(lattice.phi)
+                lattice.gauss_seidel()
+                if lattice.terminate_condition(before, lattice.phi) == False:
+                    print(j)
+                    pass
+                elif lattice.terminate_condition(before, lattice.phi) == True:
+                    #end and store sweep if convergence occured
+                    converge_sweep.append(j)
+                    break 
+
+        #save data file for sweeps and omegas to plot 
+        for m in range(len(converge_sweep)):
+            file_handle.write(str(omega_values[m]) + " " + str(converge_sweep[m]) + "\n")
+        file_handle.close()
+        
+
+main()

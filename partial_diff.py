@@ -14,7 +14,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from partial_diff import Cahn_Halliard
+from Cahn_Hilliard import Cahn_Hilliard
 from Poisson import Poisson
 from Poisson_Mag import Poisson_Mag
 from Poisson2D import Poisson2D
@@ -33,7 +33,7 @@ def main():
         phi_0 = float(sys.argv[3])
         size = (size_input, size_input)
         #calling class to initialise lattice
-        lattice = Cahn_Halliard(size, 1.0, 1.0, 0.1, 0.1, 0.1, phi_0)
+        lattice = Cahn_Hilliard(size, 1.0, 1.0, 0.1, 0.1, 0.1, phi_0)
         #runs simulation in class
         lattice.run(1000000, 1)
 
@@ -45,7 +45,7 @@ def main():
         #open file
         file_handle = open("free_energy.dat", "w+")
         #initialise lattice using class
-        lattice = Cahn_Halliard(size, 1.0, 1.0, 0.1, 0.1, 0.1, phi_0)
+        lattice = Cahn_Hilliard(size, 1.0, 1.0, 0.1, 0.1, 0.1, phi_0)
         sweeps = 1000000
 
         #staring lists to plot 
@@ -183,7 +183,7 @@ def main():
         for i in range(len(omega_values)):
             omega = omega_values[i]
             #initialise lattice from class using varrying omega values
-            lattice = Poisson2D(size, 1.0, 1.0, 0.0, omega, thres)
+            lattice = Poisson2D(size, omega, thres)
             lattice.monopole()
 
             end = False

@@ -13,7 +13,7 @@ import matplotlib.animation as animation
 import sys
 import math 
 
-class Cahn_Halliard(object):
+class Cahn_Hilliard(object):
     def __init__(self, size, dx, dt, a, M, kappa, phi_0):
         """
             initialising 
@@ -34,7 +34,7 @@ class Cahn_Halliard(object):
         self.kappa = kappa
         self.phi_0 = phi_0
 
-        self.build(phi_0)
+        self.build()
 
 
     def build(self):
